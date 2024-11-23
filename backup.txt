@@ -1,0 +1,1317 @@
+import { 
+    Container, 
+    Paper,
+    Typography,
+    TextField,
+    Button,
+    Grid,
+    Box,
+    MenuItem,
+    IconButton,
+    Divider,
+    Alert,
+    Stepper,
+    Step,
+    StepLabel,
+    Card,
+    CardContent,
+    InputAdornment,
+    Snackbar,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Table,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TableCell,
+    TableBody
+} from '@mui/material';
+import { motion, AnimatePresence } from 'framer-motion';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import PersonIcon from '@mui/icons-material/Person';
+import DescriptionIcon from '@mui/icons-material/Description';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
+import BadgeIcon from '@mui/icons-material/Badge';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import EventIcon from '@mui/icons-material/Event';
+import BrushIcon from '@mui/icons-material/Brush';
+import CategoryIcon from '@mui/icons-material/Category';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import PrintIcon from '@mui/icons-material/Print';
+import CloseIcon from '@mui/icons-material/Close';
+import { useSelector } from 'react-redux';
+import { AppRootState } from '../../app/store';
+import { v4 as uuidv4 } from 'uuid';
+import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import './styles.css';
+
+interface ValidationErrors {
+    orderDetails?: string[];
+    customerInfo?: string[];
+    sublimationItems?: Array<{
+        type?: string;
+        quantity?: string;
+    }>;
+}
+
+interface OrderForm {
+    customer: {
+        name: string;
+        email: string;
+        contact: string;
+    };
+    deadline: string;
+    type: string;
+    sublimationOrders: {
+        id: string;
+        type: string;
+        pricePerUnit: number;
+        quantity: number;
+        totalPrice: number;
+    }[];
+}
+
+const sublimationTypes = [
+    { type: 'Shirt', price: 350 },
+    { type: 'Jersey', price: 450 },
+    { type: 'Jacket', price: 550 },
+    { type: 'ID Lace', price: 50 },
+    { type: 'Mug', price: 150 },
+    { type: 'Cap', price: 250 }
+];
+
+const steps = [
+    { label: 'Order Details', icon: <ReceiptLongIcon /> },
+    { label: 'Customer Info', icon: <PersonIcon /> },
+    { label: 'Sublimation Orders', icon: <ShoppingCartIcon /> }
+];
+
+const CreateOrder: React.FC = () => {
+    const user = useSelector((state: AppRootState) => state.auth.user);
+    const [activeStep, setActiveStep] = useState(0);
+    const [orderNumber] = useState(() => Math.floor(Math.random() * 10000));
+    const navigate = useNavigate();
+    const [jobSerial] = useState(() => `IRONWOLF-${Math.random().toString(36).substring(2, 12).toUpperCase()}`);
+    const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'error' as 'success' | 'error' | 'info' | 'warning'
+    });
+
+    const [orderForm, setOrderForm] = useState({
+        customer: {
+            name: '',
+            email: '',
+            contact: ''
+        },
+        deadline: format(new Date(), 'yyyy-MM-dd'),
+        type: 'NEW',
+        sublimationOrders: [
+            {
+                id: uuidv4(),
+                type: '',
+                pricePerUnit: 0,
+                quantity: 1,
+                totalPrice: 0
+            }
+        ]
+    });
+
+    const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
+
+    const validateStep = () => {
+        let errorMessage = '';
+
+        if (activeStep === 0) {
+            if (!orderForm.deadline) {
+                errorMessage = 'Please select a deadline';
+            } else if (!orderForm.type) {
+                errorMessage = 'Please select an order type';
+            }
+        } else if (activeStep === 1) {
+            const errors: string[] = [];
+            if (!orderForm.customer.name) errors.push('Customer name is required');
+            if (!orderForm.customer.contact) errors.push('Contact number is required');
+            if (orderForm.customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderForm.customer.email)) {
+                errors.push('Please enter a valid email address');
+            }
+            
+            if (errors.length > 0) {
+                errorMessage = errors.join(', ');
+            }
+        } else if (activeStep === 2) {
+            const errors: string[] = [];
+            orderForm.sublimationOrders.forEach((order, index) => {
+                if (!order.type) errors.push(`Please select type for order ${index + 1}`);
+                if (!order.quantity || order.quantity < 1) errors.push(`Please enter a valid quantity for order ${index + 1}`);
+            });
+            
+            if (errors.length > 0) {
+                errorMessage = errors.join(', ');
+            }
+        }
+
+        if (errorMessage) {
+            setSnackbar({
+                open: true,
+                message: errorMessage,
+                severity: 'error'
+            });
+            return false;
+        }
+        
+        return true;
+    };
+
+    const handleNext = () => {
+        if (validateStep()) {
+            if (activeStep === steps.length - 1) {
+                setReviewDialogOpen(true);
+            } else {
+                setActiveStep((prevActiveStep) => prevActiveStep + 1);
+            }
+        }
+    };
+
+    const handleBack = () => {
+        setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    };
+
+    const handleSubmit = async () => {
+        if (validateStep()) {
+            try {
+                // Validate required fields
+                if (!orderForm.customer.name || !orderForm.customer.contact || !orderForm.deadline) {
+                    setSnackbar({
+                        open: true,
+                        message: 'Please fill in all required fields',
+                        severity: 'error'
+                    });
+                    return;
+                }
+
+                // Validate sublimation orders
+                const invalidOrders = orderForm.sublimationOrders.some(order => !order.type);
+                if (invalidOrders) {
+                    setSnackbar({
+                        open: true,
+                        message: 'Please fill in all sublimation order details',
+                        severity: 'error'
+                    });
+                    return;
+                }
+
+                const orderData = {
+                    jobSerial,
+                    dateOfOrder: format(new Date(), 'yyyy-MM-dd'),
+                    deadline: orderForm.deadline,
+                    layoutArtist: user?.name,
+                    type: orderForm.type,
+                    customer: {
+                        name: orderForm.customer.name,
+                        email: orderForm.customer.email || '',
+                        contact: orderForm.customer.contact
+                    },
+                    sublimationOrders: orderForm.sublimationOrders.map(order => ({
+                        id: order.id,
+                        type: order.type,
+                        pricePerUnit: order.pricePerUnit,
+                        quantity: order.quantity,
+                        totalPrice: order.totalPrice
+                    })),
+                    totalPrice: orderForm.sublimationOrders.reduce((sum, order) => sum + order.totalPrice, 0)
+                };
+
+                const response = await fetch('http://localhost:5000/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    setSnackbar({
+                        open: true,
+                        message: 'Order created successfully!',
+                        severity: 'success'
+                    });
+
+                    // Navigate to order history after successful submission
+                    setTimeout(() => {
+                        navigate('/history');
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Failed to create order');
+                }
+
+            } catch (error) {
+                console.error('Error creating order:', error);
+                setSnackbar({
+                    open: true,
+                    message: 'Error creating order. Please try again.',
+                    severity: 'error'
+                });
+            }
+        }
+    };
+
+    const handleCustomerChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+        setOrderForm(prev => ({
+            ...prev,
+            customer: {
+                ...prev.customer,
+                [field]: event.target.value
+            }
+        }));
+    };
+
+    const handleItemTypeChange = (index: number, value: string) => {
+        const newOrders = [...orderForm.sublimationOrders];
+        const selectedType = sublimationTypes.find(t => t.type === value);
+        newOrders[index] = {
+            ...newOrders[index],
+            type: value,
+            pricePerUnit: selectedType?.price || 0,
+            totalPrice: selectedType ? selectedType.price * newOrders[index].quantity : 0
+        };
+
+        setOrderForm(prev => ({
+            ...prev,
+            sublimationOrders: newOrders
+        }));
+    };
+
+    const handleQuantityChange = (index: number, value: number) => {
+        const newOrders = [...orderForm.sublimationOrders];
+        newOrders[index] = {
+            ...newOrders[index],
+            quantity: value,
+            totalPrice: newOrders[index].pricePerUnit * value
+        };
+
+        setOrderForm(prev => ({
+            ...prev,
+            sublimationOrders: newOrders
+        }));
+    };
+
+    const handleRemoveItem = (index: number) => {
+        if (orderForm.sublimationOrders.length === 1) return;
+        const newOrders = orderForm.sublimationOrders.filter((_, i) => i !== index);
+        setOrderForm(prev => ({
+            ...prev,
+            sublimationOrders: newOrders
+        }));
+    };
+
+    const addSublimationOrder = () => {
+        setOrderForm(prev => ({
+            ...prev,
+            sublimationOrders: [
+                ...prev.sublimationOrders,
+                {
+                    id: uuidv4(),
+                    type: '',
+                    pricePerUnit: 0,
+                    quantity: 1,
+                    totalPrice: 0
+                }
+            ]
+        }));
+    };
+
+    const handlePrint = () => {
+        const printContent = document.createElement('div');
+        printContent.className = 'print-only';
+        printContent.innerHTML = `
+            <div style="padding: 15px; font-family: Arial, sans-serif; max-width: 8.5in; height: 5.5in; margin: 0 auto; position: relative; background: white;">
+                <div style="text-align: center; margin-bottom: 20px; position: relative;">
+                    <div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: black; padding: 4px 15px; border-radius: 0 0 8px 8px;">
+                        <h3 style="margin: 0; color: white; font-size: 12px; letter-spacing: 1px;">ORDER QUOTE</h3>
+                    </div>
+                    <div style="border: 1.5px solid black; padding: 20px 15px 12px;">
+                        <h1 style="font-size: 24px; margin: 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 900;">IRONWOLF</h1>
+                        <h2 style="font-size: 12px; margin: 3px 0; letter-spacing: 2px; text-transform: uppercase;">Digital Printing</h2>
+                        <p style="font-size: 10px; margin: 3px 0; font-style: italic;">Professional Sublimation Printing Services</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <div style="flex: 1; border: 1px solid black; padding: 12px 10px 8px; position: relative;">
+                        <div style="position: absolute; top: -7px; left: 8px; background: white; padding: 0 4px;">
+                            <h4 style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Order Information</h4>
+                        </div>
+                        <div style="margin-top: 2px;">
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Quote No:</strong> ${orderNumber}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Job Serial:</strong> ${jobSerial}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Date:</strong> ${format(new Date(), 'MMMM dd, yyyy')}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Deadline:</strong> ${orderForm.deadline ? format(new Date(orderForm.deadline), 'MMMM dd, yyyy') : 'Not set'}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Order Type:</strong> ${orderForm.type === 'NEW' ? 'New Order' : 'Rush Order'}</p>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; border: 1px solid black; padding: 12px 10px 8px; position: relative;">
+                        <div style="position: absolute; top: -7px; left: 8px; background: white; padding: 0 4px;">
+                            <h4 style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Customer Information</h4>
+                        </div>
+                        <div style="margin-top: 2px;">
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Name:</strong> ${orderForm.customer.name}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Email:</strong> ${orderForm.customer.email || 'N/A'}</p>
+                            <p style="margin: 2px 0; font-size: 10px;"><strong>Contact:</strong> ${orderForm.customer.contact}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; border: 1px solid black; padding: 12px 10px 8px; position: relative;">
+                    <div style="position: absolute; top: -7px; left: 8px; background: white; padding: 0 4px;">
+                        <h4 style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Order Items</h4>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 3px;">
+                        <thead>
+                            <tr style="border-bottom: 1.5px solid black;">
+                                <th style="padding: 4px; text-align: left; font-size: 10px; width: 40%; text-transform: uppercase;">Item</th>
+                                <th style="padding: 4px; text-align: right; font-size: 10px; width: 20%; text-transform: uppercase;">Price/Unit</th>
+                                <th style="padding: 4px; text-align: right; font-size: 10px; width: 20%; text-transform: uppercase;">Quantity</th>
+                                <th style="padding: 4px; text-align: right; font-size: 10px; width: 20%; text-transform: uppercase;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orderForm.sublimationOrders.map(order => `
+                                <tr style="border-bottom: 0.5px solid #999;">
+                                    <td style="padding: 4px; font-size: 10px;">${order.type || 'Not specified'}</td>
+                                    <td style="padding: 4px; text-align: right; font-size: 10px;">₱${order.pricePerUnit.toFixed(2)}</td>
+                                    <td style="padding: 4px; text-align: right; font-size: 10px;">${order.quantity}</td>
+                                    <td style="padding: 4px; text-align: right; font-size: 10px;">₱${order.totalPrice.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                            <tr>
+                                <td colspan="3" style="padding: 4px; text-align: right; font-weight: bold; font-size: 10px; text-transform: uppercase;">Total Amount:</td>
+                                <td style="padding: 4px; text-align: right; font-weight: bold; font-size: 10px;">₱${orderForm.sublimationOrders.reduce((sum, order) => sum + order.totalPrice, 0).toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
+                    <div style="border-top: 1px solid black; padding-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div style="border: 1px solid black; padding: 4px 8px;">
+                                <p style="margin: 0; font-size: 10px;"><strong>Layout Artist:</strong> ${user?.name}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="margin: 0; font-size: 9px; font-style: italic;">This is a computer-generated document. No signature required.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(printContent);
+        window.print();
+        document.body.removeChild(printContent);
+    };
+
+    return (
+        <>
+            <Container 
+                maxWidth={false} 
+                sx={{ 
+                    height: 'calc(100vh - 64px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'visible',
+                    padding: '16px',
+                    position: 'fixed',
+                    top: '64px',
+                    left: '240px',
+                    right: 0,
+                    bottom: 0,
+                    width: 'auto',
+                    bgcolor: 'grey.50'
+                }}
+            >
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    style={{ 
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        overflow: 'hidden'
+                    }}
+                >
+                    <Paper 
+                        elevation={3} 
+                        sx={{ 
+                            p: 3,
+                            borderRadius: 3,
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            minHeight: 0,
+                            boxShadow: theme => theme.shadows[8]
+                        }}
+                    >
+                        <Typography 
+                            variant="h4" 
+                            gutterBottom 
+                            sx={{ 
+                                color: 'primary.main', 
+                                fontWeight: 700,
+                                mb: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                            }}
+                        >
+                            <ReceiptLongIcon sx={{ fontSize: 32 }} />
+                            Create New Order
+                        </Typography>
+
+                        <Stepper 
+                            activeStep={activeStep} 
+                            sx={{ 
+                                mb: 4,
+                                py: 2,
+                                px: 3,
+                                borderRadius: 2,
+                                bgcolor: 'grey.50',
+                                '& .MuiStepLabel-root .Mui-completed': {
+                                    color: 'success.main'
+                                },
+                                '& .MuiStepLabel-root .Mui-active': {
+                                    color: 'primary.main'
+                                },
+                                '& .MuiStepLabel-label': {
+                                    mt: 1,
+                                    fontWeight: 500
+                                }
+                            }}
+                        >
+                            {steps.map((step, index) => (
+                                <Step key={index}>
+                                    <StepLabel 
+                                        icon={step.icon}
+                                        optional={
+                                            <Typography variant="caption" color="text.secondary">
+                                                Step {index + 1}
+                                            </Typography>
+                                        }
+                                    >
+                                        {step.label}
+                                    </StepLabel>
+                                </Step>
+                            ))}
+                        </Stepper>
+
+                        <Box sx={{ 
+                            flex: 1,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            minHeight: 0
+                        }}>
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={activeStep}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.2 }}
+                                    style={{ 
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}
+                                >
+                                    <Paper elevation={1} sx={{ 
+                                        p: 3,
+                                        height: 'auto',
+                                        minHeight: 0,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        overflow: 'visible',
+                                        flex: 1
+                                    }}>
+                                        <Typography variant="h6" gutterBottom color="primary" sx={{ 
+                                            flexShrink: 0,
+                                            mb: 3,
+                                            fontWeight: 600
+                                        }}>
+                                            {activeStep === 0 && "Order Details"}
+                                            {activeStep === 1 && "Customer Information"}
+                                            {activeStep === 2 && "Sublimation Orders"}
+                                        </Typography>
+
+                                        <Box sx={{ 
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            position: 'relative',
+                                            zIndex: 1,
+                                            flex: 1
+                                        }}>
+                                            <Grid container spacing={3} sx={{ mb: 2 }}>
+                                                {activeStep === 0 && (
+                                                    <>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Job Order Number"
+                                                                value={orderNumber}
+                                                                disabled
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <BadgeIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Job Serial Number"
+                                                                value={jobSerial}
+                                                                disabled
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <LocalOfferIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Date of Order"
+                                                                value={format(new Date(), 'yyyy-MM-dd')}
+                                                                disabled
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <CalendarTodayIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Order Deadline"
+                                                                type="date"
+                                                                value={orderForm.deadline}
+                                                                onChange={(e) => setOrderForm(prev => ({ ...prev, deadline: e.target.value }))}
+                                                                InputLabelProps={{ 
+                                                                    shrink: true,
+                                                                }}
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <EventIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Layout Artist"
+                                                                value={user?.name || ''}
+                                                                disabled
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <BrushIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                select
+                                                                label="Order Type"
+                                                                value={orderForm.type}
+                                                                onChange={(e) => setOrderForm(prev => ({ ...prev, type: e.target.value }))}
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <CategoryIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            >
+                                                                <MenuItem value="NEW">New Order</MenuItem>
+                                                                <MenuItem value="PAHABOL">Rush Order</MenuItem>
+                                                            </TextField>
+                                                        </Grid>
+                                                    </>
+                                                )}
+
+                                                {activeStep === 1 && (
+                                                    <>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Customer Name"
+                                                                value={orderForm.customer.name}
+                                                                onChange={handleCustomerChange('name')}
+                                                                placeholder="Enter customer's full name"
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <PersonIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12} md={6}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Email Address"
+                                                                type="email"
+                                                                value={orderForm.customer.email}
+                                                                onChange={handleCustomerChange('email')}
+                                                                placeholder="customer@example.com"
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <EmailIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid item xs={12}>
+                                                            <TextField
+                                                                fullWidth
+                                                                label="Contact Number"
+                                                                value={orderForm.customer.contact}
+                                                                onChange={handleCustomerChange('contact')}
+                                                                placeholder="Enter contact number"
+                                                                sx={{ 
+                                                                    '& .MuiInputLabel-root': {
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 500
+                                                                    },
+                                                                    '& .MuiOutlinedInput-input': {
+                                                                        fontSize: '1.1rem',
+                                                                        backgroundColor: 'background.paper'
+                                                                    },
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        backgroundColor: 'background.paper'
+                                                                    }
+                                                                }}
+                                                                InputProps={{
+                                                                    startAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <PhoneIcon color="primary" sx={{ fontSize: '1.5rem' }} />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                }}
+                                                            />
+                                                        </Grid>
+                                                    </>
+                                                )}
+
+                                                {activeStep === 2 && (
+                                                    <Grid item xs={12}>
+                                                        <Box sx={{ 
+                                                            mt: 2,
+                                                            maxHeight: '300px',
+                                                            overflow: 'auto',
+                                                            '&::-webkit-scrollbar': {
+                                                                width: '8px',
+                                                            },
+                                                            '&::-webkit-scrollbar-track': {
+                                                                background: '#f1f1f1',
+                                                                borderRadius: '4px',
+                                                            },
+                                                            '&::-webkit-scrollbar-thumb': {
+                                                                background: '#888',
+                                                                borderRadius: '4px',
+                                                                '&:hover': {
+                                                                    background: '#555',
+                                                                },
+                                                            },
+                                                        }}>
+                                                            <Table size="small">
+                                                                <TableHead sx={{ bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 1 }}>
+                                                                    <TableRow>
+                                                                        <TableCell width="35%">Item Type</TableCell>
+                                                                        <TableCell align="right" width="20%">Price/Unit</TableCell>
+                                                                        <TableCell align="right" width="20%">Quantity</TableCell>
+                                                                        <TableCell align="right" width="20%">Total</TableCell>
+                                                                        <TableCell align="right" width="5%"></TableCell>
+                                                                    </TableRow>
+                                                                </TableHead>
+                                                                <TableBody>
+                                                                    {orderForm.sublimationOrders.map((order, index) => (
+                                                                        <TableRow key={order.id}>
+                                                                            <TableCell>
+                                                                                <TextField
+                                                                                    select
+                                                                                    fullWidth
+                                                                                    size="small"
+                                                                                    value={order.type}
+                                                                                    onChange={(e) => handleItemTypeChange(index, e.target.value)}
+                                                                                    error={Boolean(validationErrors.sublimationItems?.[index]?.type)}
+                                                                                    helperText={validationErrors.sublimationItems?.[index]?.type}
+                                                                                >
+                                                                                    {sublimationTypes.map((type) => (
+                                                                                        <MenuItem key={type.type} value={type.type}>
+                                                                                            {type.type}
+                                                                                        </MenuItem>
+                                                                                    ))}
+                                                                                </TextField>
+                                                                            </TableCell>
+                                                                            <TableCell align="right">
+                                                                                ₱{order.pricePerUnit.toFixed(2)}
+                                                                            </TableCell>
+                                                                            <TableCell align="right">
+                                                                                <TextField
+                                                                                    type="number"
+                                                                                    size="small"
+                                                                                    value={order.quantity}
+                                                                                    onChange={(e) => handleQuantityChange(index, parseInt(e.target.value))}
+                                                                                    inputProps={{ min: 1 }}
+                                                                                    error={Boolean(validationErrors.sublimationItems?.[index]?.quantity)}
+                                                                                    helperText={validationErrors.sublimationItems?.[index]?.quantity}
+                                                                                    sx={{ width: '80px' }}
+                                                                                />
+                                                                            </TableCell>
+                                                                            <TableCell align="right">
+                                                                                ₱{order.totalPrice.toFixed(2)}
+                                                                            </TableCell>
+                                                                            <TableCell align="right">
+                                                                                <IconButton
+                                                                                    size="small"
+                                                                                    onClick={() => handleRemoveItem(index)}
+                                                                                    sx={{ 
+                                                                                        color: 'error.main',
+                                                                                        visibility: orderForm.sublimationOrders.length === 1 ? 'hidden' : 'visible'
+                                                                                    }}
+                                                                                >
+                                                                                    <DeleteIcon />
+                                                                                </IconButton>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </Box>
+                                                        <Box sx={{ 
+                                                            mt: 2, 
+                                                            display: 'flex', 
+                                                            justifyContent: 'space-between', 
+                                                            alignItems: 'center',
+                                                            backgroundColor: 'background.paper',
+                                                            p: 2,
+                                                            borderRadius: 1
+                                                        }}>
+                                                            <Button
+                                                                variant="outlined"
+                                                                startIcon={<AddIcon />}
+                                                                onClick={addSublimationOrder}
+                                                                sx={{
+                                                                    borderWidth: 2,
+                                                                    '&:hover': {
+                                                                        borderWidth: 2
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Add Another Sublimation Order
+                                                            </Button>
+                                                            <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
+                                                                Total Order Price: ₱{orderForm.sublimationOrders.reduce((sum, order) => sum + order.totalPrice, 0)}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Grid>
+                                                )}
+                                            </Grid>
+                                        </Box>
+                                    </Paper>
+                                </motion.div>
+                            </AnimatePresence>
+                        </Box>
+
+                        <Divider sx={{ my: 2, flexShrink: 0 }} />
+
+                        <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            pt: 2,
+                            flexShrink: 0,
+                            gap: 2
+                        }}>
+                            <Box>
+                                {activeStep > 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<NavigateBeforeIcon />}
+                                        onClick={handleBack}
+                                        size="large"
+                                        sx={{ 
+                                            borderRadius: 2,
+                                            px: 4,
+                                            borderWidth: 2,
+                                            '&:hover': {
+                                                borderWidth: 2
+                                            }
+                                        }}
+                                    >
+                                        Back
+                                    </Button>
+                                )}
+                            </Box>
+                            <Box>
+                                {activeStep === steps.length - 1 ? (
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleNext}
+                                        size="large"
+                                        startIcon={<CheckCircleIcon />}
+                                        sx={{ 
+                                            borderRadius: 2,
+                                            px: 4,
+                                            boxShadow: 4,
+                                            '&:hover': {
+                                                boxShadow: 6
+                                            }
+                                        }}
+                                    >
+                                        Review Order
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="contained"
+                                        endIcon={<NavigateNextIcon />}
+                                        onClick={handleNext}
+                                        size="large"
+                                        sx={{ 
+                                            borderRadius: 2,
+                                            px: 4,
+                                            boxShadow: 4,
+                                            '&:hover': {
+                                                boxShadow: 6
+                                            }
+                                        }}
+                                    >
+                                        Next
+                                    </Button>
+                                )}
+                            </Box>
+                        </Box>
+                    </Paper>
+                </motion.div>
+            </Container>
+
+            {/* Review Dialog */}
+            <Dialog 
+                open={reviewDialogOpen}
+                onClose={() => setReviewDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        minHeight: '80vh',
+                        maxHeight: '90vh'
+                    }
+                }}
+            >
+                <DialogTitle sx={{ 
+                    pb: 1, 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }} className="no-print">
+                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                        Review Order Quote
+                    </Typography>
+                    <IconButton onClick={() => setReviewDialogOpen(false)} size="small">
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers sx={{ p: 3 }}>
+                    <Box className="print-section" sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        gap: 3,
+                        '@media print': {
+                            padding: '20px',
+                            margin: 0,
+                            width: '100%',
+                            height: 'auto'
+                        }
+                    }}>
+                        {/* Header */}
+                        <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h4" sx={{ 
+                                fontWeight: 700, 
+                                color: 'primary.main',
+                                textTransform: 'uppercase',
+                                letterSpacing: 1,
+                                mb: 1
+                            }}>
+                                IRONWOLF
+                            </Typography>
+                            <Typography variant="h6" sx={{ 
+                                fontWeight: 500,
+                                color: 'text.secondary',
+                                letterSpacing: 2,
+                                mb: 2
+                            }}>
+                                DIGITAL PRINTING & BRANDING
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                Professional Sublimation Printing Services
+                            </Typography>
+                            <Typography variant="h5" sx={{ 
+                                fontWeight: 600, 
+                                py: 1,
+                                borderRadius: 1,
+                                color: 'white',
+                                bgcolor: 'primary.main'
+                            }}>
+                                ORDER QUOTE
+                            </Typography>
+                            <Divider sx={{ mt: 3 }} />
+                        </Box>
+
+                        {/* Order Info and Customer Info */}
+                        <Grid container spacing={3}>
+                            <Grid item xs={6}>
+                                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%' }}>
+                                    <Typography variant="subtitle1" sx={{ 
+                                        fontWeight: 600, 
+                                        mb: 2,
+                                        color: 'primary.main',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <ReceiptLongIcon /> Order Information
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <Typography variant="body2">
+                                            <strong>Quote No:</strong> {orderNumber}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Job Serial:</strong> {jobSerial}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Date:</strong> {format(new Date(), 'MMMM dd, yyyy')}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Deadline:</strong> {orderForm.deadline ? format(new Date(orderForm.deadline), 'MMMM dd, yyyy') : 'Not set'}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Order Type:</strong> {orderForm.type === 'NEW' ? 'New Order' : 'Rush Order'}
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%' }}>
+                                    <Typography variant="subtitle1" sx={{ 
+                                        fontWeight: 600, 
+                                        mb: 2,
+                                        color: 'primary.main',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <PersonIcon /> Customer Information
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <Typography variant="body2">
+                                            <strong>Name:</strong> {orderForm.customer.name}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Email:</strong> {orderForm.customer.email || 'N/A'}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            <strong>Contact:</strong> {orderForm.customer.contact}
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            </Grid>
+                        </Grid>
+
+                        {/* Order Items */}
+                        <Box>
+                            <Typography variant="subtitle1" sx={{ 
+                                fontWeight: 600, 
+                                mb: 2,
+                                color: 'primary.main',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                            }}>
+                                <ShoppingCartIcon /> Order Items
+                            </Typography>
+                            <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'grey.50' }}>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow sx={{ 
+                                            bgcolor: 'primary.main',
+                                            '& th': { color: 'white' }
+                                        }}>
+                                            <TableCell width="40%" sx={{ fontWeight: 600 }}>Item</TableCell>
+                                            <TableCell align="right" width="20%" sx={{ fontWeight: 600 }}>Price/Unit</TableCell>
+                                            <TableCell align="right" width="20%" sx={{ fontWeight: 600 }}>Quantity</TableCell>
+                                            <TableCell align="right" width="20%" sx={{ fontWeight: 600 }}>Total</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {orderForm.sublimationOrders.map((order, index) => (
+                                            <TableRow key={order.id}>
+                                                <TableCell>{order.type || 'Not specified'}</TableCell>
+                                                <TableCell align="right">₱{order.pricePerUnit.toFixed(2)}</TableCell>
+                                                <TableCell align="right">{order.quantity}</TableCell>
+                                                <TableCell align="right">₱{order.totalPrice.toFixed(2)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                        <TableRow>
+                                            <TableCell colSpan={3} align="right" sx={{ 
+                                                fontWeight: 600, 
+                                                borderBottom: 'none',
+                                                color: 'primary.main'
+                                            }}>
+                                                Total Amount:
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ 
+                                                fontWeight: 600, 
+                                                borderBottom: 'none',
+                                                color: 'primary.main'
+                                            }}>
+                                                ₱{orderForm.sublimationOrders.reduce((sum, order) => sum + order.totalPrice, 0).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+
+                        {/* Footer */}
+                        <Box>
+                            <Divider sx={{ mb: 2 }} />
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" sx={{ 
+                                        fontWeight: 500,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        color: 'primary.main'
+                                    }}>
+                                        <BrushIcon /> Layout Artist: {user?.name}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" align="right" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                        This is a computer-generated document. No signature required.
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }} className="no-print">
+                    <Button
+                        variant="outlined"
+                        startIcon={<PrintIcon />}
+                        onClick={handlePrint}
+                        sx={{
+                            borderWidth: 2,
+                            '&:hover': {
+                                borderWidth: 2
+                            }
+                        }}
+                    >
+                        Print Quote
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleSubmit}
+                        startIcon={<CheckCircleIcon />}
+                        sx={{ 
+                            px: 3,
+                            boxShadow: 4,
+                            '&:hover': {
+                                boxShadow: 6
+                            }
+                        }}
+                    >
+                        Submit Order
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={4000} 
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert 
+                    onClose={handleCloseSnackbar} 
+                    severity={snackbar.severity}
+                    variant="filled"
+                    elevation={6}
+                    sx={{ 
+                        width: '100%',
+                        minWidth: '300px',
+                        fontSize: '1rem',
+                        alignItems: 'center',
+                        '& .MuiAlert-icon': {
+                            fontSize: '1.5rem'
+                        }
+                    }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </>
+    );
+};
+
+export default CreateOrder;
